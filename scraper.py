@@ -55,16 +55,16 @@ def already_scraped(post_id, created):
 			# Lines are of form creation,id
 			# Get each argument to check with our current post
 			line_created,line_copy = line.split(",")
-			# If we've gotten past SEARCH_BACK_DAYS days then stop
-			## print str(line_created) + " < " + str(post_date_check) + " -> " + str(float(line_created) < post_date_check)
-			if float(line_created) < post_date_check:
-				print "Looked past " + str(SEARCH_BACK_DAYS) + " days for " + post_id
-				return 1
 			# If we've found a match then stop
 			## print line_copy + " == " + post_id + " -> " + str(line_copy == post_id)
 			if line_copy == post_id:
 				print "Match found for " + post_id
 				return 1
+			# If we've gotten past SEARCH_BACK_DAYS days then stop
+			## print str(line_created) + " < " + str(post_date_check) + " -> " + str(float(line_created) < post_date_check)
+			if float(line_created) < post_date_check:
+				print "Looked past " + str(SEARCH_BACK_DAYS) + " days for " + post_id
+				return 0
 	# If there is no match then the current post hasn't been scraped.
 	print "No match found for " + post_id
 	return 0
@@ -73,7 +73,7 @@ def is_special_post(title, linkflair, author):
 	special_phrases = ["[Game Thread]", "[Post Game Thread]", "Off Topic Free Talk Thread", "4th and 5", "Pretend We're Football"]
 	special_users = ["LonghornMod", "OnAComputer"]
 	special_linkflairs = ["OFF TOPIC", "GDT", "PGT"]
-	if any(phrase in title for phrase in special_phrases) or any(author in user for user in special_users) or any(lf in linkflair for lf in special_linkflairs):
+	if any(phrase in title for phrase in special_phrases) or any(author in user for user in special_users) or (linkflair is not None and any(lf in linkflair for lf in special_linkflairs)):
 		return 1
 	return 0
 	
@@ -92,14 +92,14 @@ def scrape(reddit):
 	# Iterate through the subreddit's top X posts
 	# Reverse so newest posts are searched first
 	for submission in reversed(sub_list):
-		pprint.pprint(vars(submission))
 		# Check to see if this submission has already been seen and scraped
 		been_scraped = already_scraped(submission.id, submission.created_utc)
 		print submission.id + " has been scraped? " + str(been_scraped)
 		
 		if not been_scraped:
 			# If post hasn't been scraped see if it meets minimum score requirements or is special
-			if  (submission.score > MIN_SCORE) or is_special_post(submission.title, submission.link_flair_text, submission.author.name):
+			## print "Post is above 15? " + str(submission.score > MIN_SCORE) + " ||| Post is approved? "+ str(submission.approved) + " ||| And/Or post is special? " + str(is_special_post(submission.title, submission.link_flair_text, submission.author.name))
+			if  (submission.score > MIN_SCORE and submission.approved) or is_special_post(submission.title, submission.link_flair_text, submission.author.name):
 				# Get an object with data for Twitter
 				# Append object to list to be exported to JSON
 				# Add post to scraped posts file
@@ -119,6 +119,7 @@ def main():
 		credentials = json.load(readfile).get('reddit')
 	reddit = praw.Reddit(client_id=credentials.get('client_id'),
                          client_secret=credentials.get('client_secret'),
+						 password=credentials.get('password'),
                          user_agent=credentials.get('user_agent'),
                          username=credentials.get('username'))
 	scrape(reddit)
